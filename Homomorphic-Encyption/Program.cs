@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Globalization;
+using System.Numerics;
 
 namespace Homomorphic_Encyption
 {
@@ -7,38 +9,38 @@ namespace Homomorphic_Encyption
         static void Main(string[] args)
         {
 
-            int size = 512;
-            UInt64 p = getP(size);
-            UInt64 g = getG(size);
+            int size = 1024;
+            BigInteger p = getP(size);
+            BigInteger g = getG(size);
 
             int votersCount = 5;
-            ulong[] v = createSampleVotes(votersCount);
-            ulong[] x = createSamplePrivateValues(votersCount);
+            BigInteger[] v = createSampleVotes(votersCount);
+            BigInteger[] x = createSamplePrivateValues(votersCount);
             // Voting keys (broadcast by each voter)
-            ulong[] y = createVotingKeys(g, p, x);
+            BigInteger[] y = createVotingKeys(g, p, x);
             // Voter values
-            ulong[] V = createVotingKeys(g, p, v);
+            BigInteger[] V = createVotingKeys(g, p, v);
             // Each voter calculates Y[i]
-            ulong[] Y = calculateY(g, p, y);
-            ulong[] registeredVotes = calculateVotes(Y, x, V, p);
-            ulong result = calculateResult(registeredVotes, p);
+            BigInteger[] Y = calculateY(g, p, y);
+            BigInteger[] registeredVotes = calculateVotes(Y, x, V, p);
+            BigInteger result = calculateResult(registeredVotes, p);
 
-            Console.WriteLine("p={0}, g={1}", p, g);
-            Console.WriteLine("v=[{0}]", string.Join(", ", v));
-            Console.WriteLine("x=[{0}]", string.Join(", ", x));
-            Console.WriteLine("y=[{0}]", string.Join(", ", y));
-            Console.WriteLine("V=[{0}]", string.Join(", ", V));
-            Console.WriteLine("Y=[{0}]", string.Join(", ", Y));
-            Console.WriteLine("registeredVotes=[{0}]", string.Join(", ", registeredVotes));
+            Console.WriteLine("p={0}\n\ng={1}\n\n", p, g);
+            Console.WriteLine("v=[{0}]\n\n", string.Join(", ", v));
+            Console.WriteLine("x=[{0}]\n\n", string.Join(", ", x));
+            Console.WriteLine("y=[{0}]\n\n", string.Join(", ", y));
+            Console.WriteLine("V=[{0}]\n\n", string.Join(", ", V));
+            Console.WriteLine("Y=[{0}]\n\n", string.Join(", ", Y));
+            Console.WriteLine("registeredVotes=[{0}]\n\n", string.Join(", ", registeredVotes));
             bruteforce(result, g, p);
             Console.ReadLine();
         }
 
-        static void bruteforce(ulong result, ulong g, ulong p)
+        static void bruteforce(BigInteger result, BigInteger g, BigInteger p)
         {
             for (int i = 0; i < 10000; i++)
             {
-                ulong gm = ((ulong) Math.Pow(g, i)) % p;
+                BigInteger gm = BigInteger.ModPow(g, i, p);
 
                 if (result.Equals(gm))
                 {
@@ -48,9 +50,9 @@ namespace Homomorphic_Encyption
             }
         }
 
-        static ulong calculateResult(ulong[] registeredVotes, ulong p)
+        static BigInteger calculateResult(BigInteger[] registeredVotes, BigInteger p)
         {
-            ulong result = 1;
+            BigInteger result = 1;
 
             for (int i = 0; i < registeredVotes.Length; i++)
             {
@@ -59,23 +61,23 @@ namespace Homomorphic_Encyption
             return result % p;
         }
 
-        static ulong[] calculateVotes(ulong[] Y, ulong[] x, ulong[] V, ulong p)
+        static BigInteger[] calculateVotes(BigInteger[] Y, BigInteger[] x, BigInteger[] V, BigInteger p)
         {
-            ulong[] registeredVotes = new ulong[Y.Length];
+            BigInteger[] registeredVotes = new BigInteger[Y.Length];
             for (int i = 0; i < Y.Length; i++)
             {
-                registeredVotes[i] = ((ulong)Math.Pow(Y[i], x[i])) % p * V[i];
+                registeredVotes[i] = BigInteger.ModPow(Y[i], (int) x[i], p) * V[i];
             }
             return registeredVotes;
         }
 
-        static ulong[] calculateY(ulong g, ulong p, ulong[] y)
+        static BigInteger[] calculateY(BigInteger g, BigInteger p, BigInteger[] y)
         {
-            ulong[] Y = new ulong[y.Length];
+            BigInteger[] Y = new BigInteger[y.Length];
 
             for (int i = 0; i < y.Length; i++)
             {
-                ulong res = 1;
+                BigInteger res = 1;
 
                 for (int j = 0; j <= i-1; j++)
                 {
@@ -85,7 +87,7 @@ namespace Homomorphic_Encyption
 
                 for (int j = i+1; j < y.Length; j++)
                 {
-                    res *= (ulong) modInverse((int) y[j], (int) p);
+                    res *= modInverse(y[j], p);
                     res = res % p;
                 }
 
@@ -95,19 +97,28 @@ namespace Homomorphic_Encyption
             return Y;
         }
 
-        static int modInverse(int num, int p)
+        static BigInteger power(BigInteger x, BigInteger y, BigInteger m)
         {
-            num = num % p;
-            for (int i=1; i<p; i++)
-            {
-                if (num * i % p == 1) return i;
-            }
-            return 1;
+            if (y == 0)
+                return 1;
+
+            BigInteger p = power(x, y / 2, m) % m;
+            p = (p * p) % m;
+
+            if (y % 2 == 0)
+                return p;
+            else
+                return (x * p) % m;
         }
 
-        static ulong[] createVotingKeys(ulong g, ulong p, ulong[] x)
+        static BigInteger modInverse(BigInteger num, BigInteger p)
         {
-            ulong[] y = new ulong[x.Length];
+            return power(num, p - 2, p);
+        }
+
+        static BigInteger[] createVotingKeys(BigInteger g, BigInteger p, BigInteger[] x)
+        {
+            BigInteger[] y = new BigInteger[x.Length];
             for (int i = 0; i < x.Length; i++)
             {
                 y[i] = makeG(g, x[i], p);
@@ -115,61 +126,63 @@ namespace Homomorphic_Encyption
             return y;
         }
 
-        static ulong[] createSampleVotes(int size)
+        static BigInteger[] createSampleVotes(int size)
         {
             Random random = new Random();
-            ulong[] votes = new ulong[size];
+            BigInteger[] votes = new BigInteger[size];
             for (int i = 0; i < size; i++) {
-                votes[i] = (ulong) random.Next(1, 3);
+                votes[i] = (BigInteger) random.Next(1, 3);
             }
             return votes;
         }
 
-        static ulong[] createSamplePrivateValues(int size)
+        static BigInteger[] createSamplePrivateValues(int size)
         {
             Random random = new Random();
-            ulong[] votes = new ulong[size];
+            BigInteger[] votes = new BigInteger[size];
             for (int i = 0; i < size; i++)
             {
-                votes[i] = (ulong) random.Next(1, 10);
+                votes[i] = (BigInteger) random.Next(1, 10);
             }
             return votes;
         }
 
-        static ulong makeG(ulong g, ulong v, ulong p)
+        static BigInteger makeG(BigInteger g, BigInteger v, BigInteger p)
         {
-            return ((ulong) Math.Pow(g, v)) % p;
+            return BigInteger.ModPow(g, v, p);
         }
 
-        static UInt64 hexToInt(string hexValue)
+        static BigInteger hexToInt(string hexValue)
         {
             return Convert.ToUInt64(hexValue, 16);
         }
 
         // TODO
-        static UInt64 getG(int size)
+        static BigInteger getG(int size)
         {
             if (size.Equals(512))
             {
-                return 2;// hexToInt("11");
+                return BigInteger.Parse("0678471B27A9CF44EE91A49C5147DB1A9AAF244F05A434D6486931D2D14271B9E35030B71FD73DA179069B32E2935630E1C2062354D0DA20A6C416E50BE794CA4", NumberStyles.HexNumber);
             }
             else if (size.Equals(768)) {
-                return hexToInt("30");
+                return BigInteger.Parse("030470AD5A005FB14CE2D9DCD87E38BC7D1B1C5FACBAECBE95F190AA7A31D23C4DBBCBE06174544401A5B2C020965D8C2BD2171D3668445771F74BA084D2029D83C1C158547F3A9F1A2715BE23D51AE4D3E5A1F6A7064F316933A346D3F529252", NumberStyles.HexNumber);
             }
             else if (size.Equals(1024)) {
-                return hexToInt("F7");
+                return BigInteger.Parse("0F7E1A085D69B3DDECBBCAB5C36B857B97994AFBBFA3AEA82F9574C0B3D0782675159578EBAD4594FE67107108180B449167123E84C281613B7CF09328CC8A6E13C167A8B547C8D28E0A3AE1E2BB3A675916EA37F0BFA213562F1FB627A01243BCCA4F1BEA8519089A883DFE15AE59F06928B665E807B552564014C3BFECF492A", NumberStyles.HexNumber);
             }
             return 0;
         }
 
-        static UInt64 getP(int size)
+        static BigInteger getP(int size)
         {
             if (size.Equals(512)) {
-                return 11;// hexToInt("11");
-            } else if (size.Equals(768)) {
-                return hexToInt("E9");
-            } else if (size.Equals(1024)) {
-                return hexToInt("FD");
+                return BigInteger.Parse("0FCA682CE8E12CABA26EFCCF7110E526DB078B05EDECBCD1EB4A208F3AE1617AE01F35B91A47E6DF63413C5E12ED0899BCD132ACD50D99151BDC43EE737592E17", NumberStyles.HexNumber);
+            }
+            else if (size.Equals(768)) {
+                return BigInteger.Parse("0E9E642599D355F37C97FFD3567120B8E25C9CD43E927B3A9670FBEC5D890141922D2C3B3AD2480093799869D1E846AAB49FAB0AD26D2CE6A22219D470BCE7D777D4A21FBE9C270B57F607002F3CEF8393694CF45EE3688C11A8C56AB127A3DAF", NumberStyles.HexNumber);
+            }
+            else if (size.Equals(1024)) {
+                return BigInteger.Parse("0FD7F53811D75122952DF4A9C2EECE4E7F611B7523CEF4400C31E3F80B6512669455D402251FB593D8D58FABFC5F5BA30F6CB9B556CD7813B801D346FF26660B76B9950A5A49F9FE8047B1022C24FBBA9D7FEB7C61BF83B57E7C6A8A6150F04FB83F6D3C51EC3023554135A169132F675F3AE2B61D72AEFF22203199DD14801C7", NumberStyles.HexNumber);
             }
             return 0;
         }
